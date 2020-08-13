@@ -4,4 +4,4 @@
 
 Let's α<sub>n</sub> be step size parameter for step n.
 
-![Chapter 2](resources/Exercise 2.4.png)
+![Exercise_2_4](resources/Exercise_2_4.png)
