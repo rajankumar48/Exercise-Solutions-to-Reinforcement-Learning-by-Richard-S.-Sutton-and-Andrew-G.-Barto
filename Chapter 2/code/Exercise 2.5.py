@@ -18,18 +18,7 @@ class MultiArmedBandit(object):
         self.n_arms = n_arms
         self.mu = mu
         self.sigma = sigma
-        self.Q = np.zeros(n_arms)
         self.q_star = np.zeros(n_arms)
-        
-    def select_action(self, epsilon):
-        
-        if np.random.rand() < epsilon:
-            action = np.random.randint(0, self.n_arms - 1)
-        else:
-            action = np.random.choice(np.flatnonzero(self.Q == self.Q.max())) # random tie breaker
-            # action = np.argmax(self.Q)
-            
-        return action
     
     def random_walk(self):
         self.q_star += np.random.normal(self.mu, self.sigma, self.n_arms)
@@ -39,25 +28,44 @@ class MultiArmedBandit(object):
     
     def reward(self, action):
         return np.random.normal(self.q_star[action], 1, 1)
+
+#%% Create estimators
+
+class Estimator():
+    def __init__(self, Q, epsilon):
+        self.epsilon = epsilon
+        self.Q = Q.copy()
+        self.n_arms = len(Q)
         
-class SampleAverage(MultiArmedBandit):
-    def __init__(self):
-        super(SampleAverage, self).__init__(n_arms, mu, sigma)
-        self.arm_count = np.zeros(n_arms)
+    def select_action(self):
+        if np.random.rand() < self.epsilon:
+            return np.random.randint(0, self.n_arms - 1)
+            
+        else:
+            return np.random.choice(np.flatnonzero(self.Q == self.Q.max())) # random tie breaker
+            # return np.argmax(self.Q)
+
+class SampleAverage(Estimator):
+    def __init__(self, Q, epsilon):
+        super().__init__(Q, epsilon)
+        self.arm_count = np.zeros(len(Q))
+        # self.Q = Q
     
     def update_Q(self, action, R):
         self.arm_count[action] += 1
         self.Q[action] = self.Q[action] + (R - self.Q[action])/self.arm_count[action]
+        # return self.Q
         
 
-class WeightedAverage(MultiArmedBandit):
-    def __init__(self, alpha):
-        super(WeightedAverage, self).__init__(n_arms, mu, sigma)
-        self.arm_count = np.zeros(n_arms)
+class WeightedAverage(Estimator):
+    def __init__(self, Q, epsilon, alpha):
+        super().__init__(Q, epsilon)
         self.alpha = alpha
+        # self.Q = Q
     
     def update_Q(self, action, R):
         self.Q[action] = self.Q[action] + self.alpha*(R - self.Q[action])
+        # return self.Q
     
 def line_plot(data, ylabel, fig_name):
     mean_data = np.mean(data, axis = 1)
@@ -68,7 +76,7 @@ def line_plot(data, ylabel, fig_name):
     sns.lineplot(data = data_melt, x = 'Steps', y = 'value', hue = 'variable')
     ax.set_ylabel(ylabel)
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles=handles[1:], labels=labels[1:])
+    ax.legend(handles=handles[1:], labels=labels[1:], loc = 'lower right')
     fig.tight_layout()
     plt.savefig('resources/chapter 2/' + fig_name + '.png')
 
@@ -83,26 +91,30 @@ sigma = 0.01 # standard deviation for random walk
 epsilon = 0.1
 alpha = 0.1 # step size
 
-n_methods = 2
+n_estimators = 2
 
-rewards = np.empty((n_steps, n_runs, n_methods))
-optimals = np.empty((n_steps, n_runs, n_methods))
+rewards = np.empty((n_steps, n_runs, n_estimators))
+optimals = np.empty((n_steps, n_runs, n_estimators))
+initial_Q = np.zeros(n_arms)
+Q = np.zeros(n_arms)
 
 for run_id in tqdm(range(n_runs)):
-    sample_average = SampleAverage()
-    weighted_average = WeightedAverage(alpha)
-    methods = [sample_average, weighted_average]
-    for m, method in enumerate(methods):
+    sample_average = SampleAverage(initial_Q, epsilon)
+    weighted_average = WeightedAverage(initial_Q, epsilon, alpha)
+    estimators = [sample_average, weighted_average]
+    
+    for i, estimator in enumerate(estimators):
         env = MultiArmedBandit(n_arms, mu, sigma)
+        
         for step_id in range(n_steps):
-            action = method.select_action(epsilon)
+            action = estimator.select_action()
             optimal = env.is_optimal(action)
             reward = env.reward(action)
-            method.update_Q(action, reward)
+            estimator.update_Q(action, reward)
             env.random_walk()
             
-            rewards[step_id, run_id, m] = reward
-            optimals[step_id, run_id, m] = optimal
+            rewards[step_id, run_id, i] = reward
+            optimals[step_id, run_id, i] = optimal
             
-line_plot(rewards, 'Average Reward', 'Ex_2.5_avg_reward.png')      
-line_plot(optimals, 'Optimal Action %', 'Ex_2.5_optimal_action.png') 
+line_plot(rewards, 'Average Reward', 'Ex_2.5_avg_reward')      
+line_plot(optimals, 'Optimal Action %', 'Ex_2.5_optimal_action') 
