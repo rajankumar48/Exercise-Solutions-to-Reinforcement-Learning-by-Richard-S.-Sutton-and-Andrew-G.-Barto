@@ -1,1 +1,3 @@
 # Exercise Solutions to Reinforcement Learning by Richard S. Sutton and Andrew G.-Barto
+
+Chapter 2 is in progress...
