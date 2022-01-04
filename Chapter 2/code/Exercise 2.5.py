@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 #%% Create Multi armed bandit environment
+#
 
 class MultiArmedBandit(object):
     def __init__(self, n_arms, mu, sigma):
